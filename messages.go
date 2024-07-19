@@ -11,17 +11,47 @@ const (
 	messagesSuffix = "messages"
 )
 
+type MessageStatus string
+
+const (
+	MessageStatusInProgress MessageStatus = "in_progress"
+	MessageStatusIncomplete MessageStatus = "incomplete"
+	MessageStatusCompleted  MessageStatus = "completed"
+)
+
+type IncompleteDetails struct {
+	Reason string `json:"reason"`
+}
+
+type MessageToolType string
+
+const (
+	MessageToolTypeCodeInterpreter MessageToolType = "code_interpreter"
+	MessageToolTypeFileSearch      MessageToolType = "file_search"
+)
+
+type Attachment struct {
+	FileID string `json:"file_id"`
+	Tools  []struct {
+		Type MessageToolType `json:"type"`
+	}
+}
+
 type Message struct {
-	ID          string           `json:"id"`
-	Object      string           `json:"object"`
-	CreatedAt   int              `json:"created_at"`
-	ThreadID    string           `json:"thread_id"`
-	Role        string           `json:"role"`
-	Content     []MessageContent `json:"content"`
-	FileIds     []string         `json:"file_ids"` //nolint:revive //backwards-compatibility
-	AssistantID *string          `json:"assistant_id,omitempty"`
-	RunID       *string          `json:"run_id,omitempty"`
-	Metadata    map[string]any   `json:"metadata"`
+	ID                string             `json:"id"`
+	Object            string             `json:"object"`
+	CreatedAt         int                `json:"created_at"`
+	ThreadID          string             `json:"thread_id"`
+	Status            MessageStatus      `json:"status"`
+	IncompleteDetails *IncompleteDetails `json:"incomplete_details,omitempty"`
+	CompletedAt       *int               `json:"completed_at,omitempty"`
+	IncompleteAt      *int               `json:"incomplete_at,omitempty"`
+	Role              string             `json:"role"`
+	Content           []MessageContent   `json:"content"`
+	AssistantID       *string            `json:"assistant_id,omitempty"`
+	RunID             *string            `json:"run_id,omitempty"`
+	Attachments       []Attachment       `json:"attachments,omitempty"`
+	Metadata          map[string]any     `json:"metadata"`
 
 	httpHeader
 }
@@ -92,6 +122,7 @@ func (c *Client) ListMessage(ctx context.Context, threadID string,
 	order *string,
 	after *string,
 	before *string,
+	runID *string,
 ) (messages MessagesList, err error) {
 	urlValues := url.Values{}
 	if limit != nil {
@@ -105,6 +136,9 @@ func (c *Client) ListMessage(ctx context.Context, threadID string,
 	}
 	if before != nil {
 		urlValues.Add("before", *before)
+	}
+	if runID != nil {
+		urlValues.Add("run_id", *runID)
 	}
 	encodedValues := ""
 	if len(urlValues) > 0 {
